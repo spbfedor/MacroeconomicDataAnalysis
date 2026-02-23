@@ -21,7 +21,7 @@ def average_gdp(filenames):
                 reader = csv.DictReader(f)
                 for row in reader:
                     try:
-                        country = row['country']
+                        country = row['country'].strip()
                         gdp = float(row['gdp'])
                         data[country].append(gdp)
                     except (ValueError, KeyError): 
