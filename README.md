@@ -16,3 +16,6 @@ pip -r requirements.txt
 
 # Запуск формирования отчета по среднему ВВП
 python3 macro_reports.py --files economic1.csv economic2.csv --report average-gdp
+
+## 📊 Пример работы
+![Результат выполнения скрипта](./example.png)
