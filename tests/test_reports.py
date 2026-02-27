@@ -1,48 +1,54 @@
-import os
+import pytest
+from typing import Callable, List
 
-from macro_reports import average_gdp
+from macro_reports import average_gdp, CountryData
 
-def create_csv(filename, content):
-    with open(filename, 'w', encoding="utf-8") as f:
-        f.write("country,gdp\n")
-        for i in content:
-            f.write(f"{i}\n")
 
-def test_avg_calc():
-    test_file = "test_avg.csv"
-    create_csv(test_file, ["Russia,1000.0", "Russia,2000.0"])
+@pytest.fixture
+def temp_csv(tmp_path) -> Callable[[str, List[str]], str]:
+    def _create_file(name: str, content: List[str]) -> str:
+        file = tmp_path / name
+        file.write_text("country,gdp\n" + "\n".join(content))
+        return str(file)
+    return _create_file
 
-    result = average_gdp([test_file])
 
-    assert result[0] == ["Russia", 1500.0]
-    os.remove(test_file)
+def test_avg_calc(temp_csv: Callable) -> None:
+    path: str = temp_csv("data.csv", ["Russia,1000.0", "Russia,2000.0"])
 
-def test_sort():
-    test_file = "test_sort.csv"
-    create_csv(test_file, ["small,1000.0", "big,2000.7"])
+    result: List[CountryData] = average_gdp([path])
 
-    result = average_gdp([test_file])
+    assert result[0].country == "Russia"
+    assert result[0].gdp == 1500
 
-    assert result[0] == ["big", 2000.7]
-    assert result[1] == ["small", 1000.0]
-    os.remove(test_file)
 
-def test_dirty_data():
-    test_file = "test_dirty.csv"
-    create_csv(test_file, ["Russia,1000.23", "Fake,zxcv", "USA,"])
+def test_sort(temp_csv: Callable) -> None:
 
-    result = average_gdp([test_file])
+    path: str = temp_csv("data.csv", ["small,1000.0", "big,2000.7"])
 
-    assert len(result) == 1
-    assert result[0] == ["Russia", 1000.23]
-    os.remove(test_file)
+    result: List[CountryData] = average_gdp([path])
 
-def test_missing_file():
-    test_file = "test_dirty.csv"
-    create_csv(test_file, ["Russia,1000.23"])
+    assert result[0].country == "big"
+    assert result[0].gdp == 2000.7
+    assert result[1].country == "small"
+    assert result[1].gdp == 1000.0
 
-    result = average_gdp([test_file, "test.csv"])
+
+def test_dirty_data(temp_csv: Callable) -> None:
+    path: str = temp_csv("data.csv", ["Russia,1000.23", "Fake,zxcv", "USA,"])
+
+    result: List[CountryData] = average_gdp([path])
 
     assert len(result) == 1
-    assert result[0] == ["Russia", 1000.23]
-    os.remove(test_file)
+    assert result[0].country == "Russia"
+    assert result[0].gdp == 1000.23
+
+
+def test_missing_file(temp_csv: Callable) -> None:
+    path: str = temp_csv("data.csv", ["Russia,1000.23"])
+
+    result: List[CountryData] = average_gdp([path])
+
+    assert len(result) == 1
+    assert result[0].country == "Russia"
+    assert result[0].gdp == 1000.23
