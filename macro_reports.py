@@ -1,54 +1,12 @@
 import argparse
-import csv
 import sys
-from collections import defaultdict
-from dataclasses import dataclass
-from typing import Callable, Dict, Final, List
+from typing import List
 
 from tabulate import tabulate
 
-DEFAULT_ENCODING: Final[str] = "utf-8"
-REPORT_FILENAME: Final[str] = "report.txt"
-REPORT_REGISTRY: Dict[str, Callable] = {}
-
-
-@dataclass(frozen=True)
-class CountryData:
-    country: str
-    gdp: float
-
-
-def register_report(name: str) -> Callable:
-    def decorator(func: Callable) -> Callable:
-        REPORT_REGISTRY[name] = func
-        return func
-
-    return decorator
-
-
-@register_report("average-gdp")
-def average_gdp(filenames: List[str]) -> List[CountryData]:
-    data: Dict[str, List[float]] = defaultdict(list)
-    for file in filenames:
-        try:
-            with open(file, "r", encoding=DEFAULT_ENCODING) as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    try:
-                        country = row["country"].strip()
-                        gdp = float(row["gdp"])
-                        data[country].append(gdp)
-                    except (ValueError, KeyError):
-                        continue
-        except FileNotFoundError:
-            sys.stderr.write(f"Предупреждение: файл {file} не найден")
-    report_data: List[CountryData] = []
-    for country, gdp_list in data.items():
-        avg_gdp = sum(gdp_list) / len(gdp_list)
-        row = CountryData(country=country, gdp=round(avg_gdp, 2))
-        report_data.append(row)
-
-    return sorted(report_data, key=lambda x: x.gdp, reverse=True)
+import app.reports
+from app.base import REPORT_REGISTRY
+from app.schemas import CountryData
 
 
 def main() -> None:
@@ -67,8 +25,9 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    report_func = REPORT_REGISTRY[args.report]
-    results: List[CountryData] = report_func(args.files)
+    report_class = REPORT_REGISTRY[args.report]
+    report_instance = report_class()
+    results: List[CountryData] = report_instance.calculate(args.files)
 
     if results:
         table_data = [[r.country, r.gdp] for r in results]
